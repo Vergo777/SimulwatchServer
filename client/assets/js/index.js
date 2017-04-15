@@ -62,7 +62,7 @@ socket.on('playCurrentVideoForNewClient', function (currentVideoData) {
 
     currentVideoData = $.parseJSON(currentVideoData);
 
-    videoPlayer.src({type: 'video/youtube', src: currentVideoData.videoURL});
+    loadNewVideoInPlayer(currentVideoData.videoURL);
     videoPlayer.currentTime(currentVideoData.elapsedTime);
     videoPlayer.play();
     updateNowPlayingHeader(currentVideoData.videoURL, currentVideoData.username);
@@ -85,7 +85,7 @@ socket.on('playNextVideoInQueue', function (nextVideoQueueObject) {
         $('#bucket0').find('li').first().remove();
     }
 
-    videoPlayer.src({type: 'video/youtube', src: nextVideoQueueObject.videoURL});
+    loadNewVideoInPlayer(nextVideoQueueObject.videoURL);
     videoPlayer.play();
     updateNowPlayingHeader(nextVideoQueueObject.videoURL, nextVideoQueueObject.username);
 });
@@ -98,7 +98,7 @@ socket.on('newVideoQueueForClient', function (newVideoQueueObject) {
     populateClientVideoQueue(newVideoQueueObject.videoQueue);
 
     if(newVideoQueueObject.playVideo) {
-        videoPlayer.src({type: 'video/youtube', src: newVideoQueueObject.videoURL});
+        loadNewVideoInPlayer(newVideoQueueObject.videoURL);
         videoPlayer.play();
         updateNowPlayingHeader(newVideoQueueObject.videoURL, newVideoQueueObject.username);
     }
@@ -116,6 +116,16 @@ $('#newVideoQueue').find('button').click(function() {
     });
     $('#newVideoQueue').find('.form-control').val('')
 });
+
+loadNewVideoInPlayer = function (videoURL) {
+    var type = 'video/youtube';
+
+    if(videoURL.split('.').pop() == "mp4") {
+        type = "video/mp4";
+    }
+
+    videoPlayer.src({type: type, src: videoURL});
+};
 
 updateNowPlayingHeader = function (title, username) {
     $('#nowPlaying').empty();
