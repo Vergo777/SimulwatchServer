@@ -13,16 +13,26 @@ videoPlayer.on('pause', function () {
    socket.emit('videoPaused');
 });
 
-socket.on('pauseVideoForAllClients', function () {
-    videoPlayer.pause();
+socket.on('pauseVideoForAllClients', function (pauseDataObject) {
+
+    pauseDataObject = $.parseJSON(pauseDataObject);
+
+    if(socket.io.engine.id != pauseDataObject.masterSocketID) {
+        videoPlayer.pause();
+    }
 });
 
 videoPlayer.on('play', function () {
    socket.emit('videoPlayed');
 });
 
-socket.on('playVideoForAllClients', function () {
-   videoPlayer.play();
+socket.on('playVideoForAllClients', function (playDataObject) {
+
+    playDataObject = $.parseJSON(playDataObject);
+
+    if(socket.io.engine.id != playDataObject.masterSocketId) {
+        videoPlayer.play();
+    }
 });
 
 videoPlayer.on('seeked', function () {

@@ -75,7 +75,11 @@ public class Launcher {
             @Override
             public void onData(SocketIOClient client, JsonObject data, AckRequest ackSender) throws Exception {
                 if(isSocketMaster(client.getSessionId())) {
-                    server.getBroadcastOperations().sendEvent("pauseVideoForAllClients");
+
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.addProperty("masterSocketID", masterSocket.getSocketId().toString());
+
+                    server.getBroadcastOperations().sendEvent("pauseVideoForAllClients", jsonObject.toString());
                 }
             }
         });
@@ -84,7 +88,11 @@ public class Launcher {
             @Override
             public void onData(SocketIOClient client, JsonObject data, AckRequest ackSender) throws Exception {
                 if(isSocketMaster(client.getSessionId())) {
-                    server.getBroadcastOperations().sendEvent("playVideoForAllClients");
+
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.addProperty("masterSocketID", masterSocket.getSocketId().toString());
+
+                    server.getBroadcastOperations().sendEvent("playVideoForAllClients", jsonObject.toString());
                 }
             }
         });
