@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>Music Server</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="assets/css/style.css">
+
+    <link href="http://vjs.zencdn.net/5.19.1/video-js.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">Music Server</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+            <form class="navbar-form navbar-right" id="nicknameField">
+                <div class="form-group">
+                    <input type="text" class="form-control" placeholder="Super secret admin stuff">
+                </div>
+                <button type="button" class="btn btn-danger">El Psy Kongroo</button>
+            </form>
+        </div><!--/.nav-collapse -->
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-xs-5 col-xs-offset-1">
+            <div class="row">
+                <div class="col-xs-12 vertical-spaced-row" id="nowPlaying">
+
+                </div>
+                <div class="col-xs-12 vertical-spaced-row">
+                    <div class="embed-responsive embed-responsive-16by9">
+                        <video id="videoPlayer" class="video-js" controls preload="auto"
+                               data-setup='{ "fluid": true, "techOrder": ["html5", "youtube"] }'>
+                            <p class="vjs-no-js">
+                                To view this video please enable JavaScript, and consider upgrading to a web browser that
+                                <a href="http://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+                            </p>
+                        </video>
+                    </div>
+                </div>
+                <div class="col-xs-12 vertical-spaced-row">
+                    <div class="input-group" id="newVideoQueue">
+                        <input type="text" class="form-control" placeholder="Enter YouTube link here!">
+                        <span class="input-group-btn">
+                            <button class="btn btn-primary" type="button">Queue!</button>
+                        </span>
+                    </div>
+                </div>
+                <div class="col-xs-12" id="newVideoQueueAlert"></div>
+            </div>
+        </div>
+
+        <div class="col-xs-4 col-xs-offset-1">
+            <div class="row text-center" id="videoQueue"></div>
+        </div>
+    </div>
+</div><!-- /.container -->
+
+<script src="assets/js/socket.io/socket.io.js"></script>
+<script src="assets/js/jquery-1.7.2.min.js"></script>
+<script src="http://vjs.zencdn.net/5.19.1/video.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-youtube/2.3.2/Youtube.min.js"></script>
+<script src="assets/js/index.js"></script>
+</body>
+</html>
