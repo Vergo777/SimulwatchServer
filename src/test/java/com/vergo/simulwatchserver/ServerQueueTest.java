@@ -1,24 +1,29 @@
 package com.vergo.simulwatchserver;
 
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+
 
 import java.util.LinkedHashMap;
+
+import static org.junit.Assert.*;
 
 /**
  * Created by Varun on 14/04/2017.
  */
-public class ServerQueueTest extends TestCase {
+public class ServerQueueTest {
     private ServerQueue serverQueue;
     private ServerQueueObject dummyServerQueueObject = new ServerQueueObject("testUser", "testURL");
 
-    public void setUp() throws Exception {
+    @Before
+    public void setup() throws Exception {
         serverQueue = new ServerQueue();
     }
 
+    @Test
     public void testQueueNewVideoEmptyQueue() throws Exception {
         serverQueue.queueNewVideo("testUser", dummyServerQueueObject);
         assertEquals(serverQueue.getServerQueue().size(), 1);
@@ -28,6 +33,7 @@ public class ServerQueueTest extends TestCase {
         assertNotNull(firstBucket.get("testUser"));
     }
 
+    @Test
     public void testQueueNewVideoEmptyBucketAvailable() throws Exception {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);
@@ -51,6 +57,7 @@ public class ServerQueueTest extends TestCase {
         assertNotNull(secondBucket.get("testUser2"));
     }
 
+    @Test
     public void testQueueNewVideoEmptyBucketNotAvailable() throws Exception {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);
@@ -76,6 +83,7 @@ public class ServerQueueTest extends TestCase {
         assertNotNull(thirdBucket.get("testUser1"));
     }
 
+    @Test
     public void testQueueNewVideoNewUser() throws Exception {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);
@@ -98,6 +106,7 @@ public class ServerQueueTest extends TestCase {
         assertNotNull(secondBucket.get("testUser2"));
     }
 
+    @Test
     public void testGetNextQueuedVideoBucketNotEmpty() throws Exception {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);
@@ -111,6 +120,7 @@ public class ServerQueueTest extends TestCase {
         assertTrue(firstBucket.containsKey("testUser2"));
     }
 
+    @Test
     public void testGetNextQueuedVideoBucketEmptyAfterRemoval() throws Exception {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);
@@ -132,6 +142,7 @@ public class ServerQueueTest extends TestCase {
         assertTrue(firstBucket.containsKey("testUser2"));
     }
 
+    @Test
     public void testQueueJSONSerialization() {
         serverQueue.queueNewVideo("testUser1", dummyServerQueueObject);
         serverQueue.queueNewVideo("testUser2", dummyServerQueueObject);

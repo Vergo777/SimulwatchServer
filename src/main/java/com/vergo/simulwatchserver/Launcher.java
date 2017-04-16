@@ -47,15 +47,7 @@ public class Launcher {
         server.addEventListener("returnCurrentVideoElapsedTime", ReturnCurrentVideoElapsedTimeObject.class, new DataListener<ReturnCurrentVideoElapsedTimeObject>() {
             @Override
             public void onData(SocketIOClient client, ReturnCurrentVideoElapsedTimeObject data, AckRequest ackSender) throws Exception {
-                JsonObject jsonObject = new JsonObject();
-                jsonObject.addProperty("elapsedTime", data.getElapsedTime());
-
-                ServerQueueObject currentObjectQueued = serverQueue.peekCurrentQueuedVideo();
-
-                jsonObject.addProperty("username", currentObjectQueued.getUsername());
-                jsonObject.addProperty("videoURL", currentObjectQueued.getVideoURL());
-
-                server.getClient(data.getNewClientSocketId()).sendEvent("playCurrentVideoForNewClient", jsonObject.toString());
+                returnCurrentVideoElapsedTimeCallback(data, server, serverQueue);
             }
         });
 
@@ -114,10 +106,7 @@ public class Launcher {
         server.addEventListener("setNickname", String.class, new DataListener<String>() {
             @Override
             public void onData(SocketIOClient socketIOClient, String nickname, AckRequest ackRequest) throws Exception {
-                if(nickname.equals("amadeus")) {
-                    logger.info("New master socket confirmed. This too must be the choice of Steins;Gate");
-                    masterSocket.setSocketDetails(socketIOClient.getSessionId());
-                }
+                setNicknameCallback(nickname, socketIOClient, logger, masterSocket);
             }
         });
 
@@ -156,21 +145,28 @@ public class Launcher {
         server.addEventListener("newVideoQueue", ServerQueueObject.class, new DataListener<ServerQueueObject>() {
             @Override
             public void onData(SocketIOClient client, ServerQueueObject newServerQueueObject, AckRequest ackSender) throws Exception {
-                if(masterSocket.getSocketId() == null) {
-                    logger.info("No master socket set, request is ignored");
-                    return;
-                }
-
-                addNewVideoToQueue(newServerQueueObject, server);
+                newVideoQueueCallback(masterSocket, serverQueue, newServerQueueObject, server, logger);
             }
         });
-
-
 
         server.start();
     }
 
-    public static void addNewVideoToQueue(ServerQueueObject newServerQueueObject, SocketIOServer server) {
+    public static void setNicknameCallback(String nickname, SocketIOClient socketIOClient, Logger logger, SocketDetails masterSocket) {
+        if(nickname.equals("amadeus")) {
+            logger.info("New master socket confirmed. This too must be the choice of Steins;Gate");
+            masterSocket.setSocketDetails(socketIOClient.getSessionId());
+        } else {
+            logger.info("Incorrect attempt to set master with nickname {}", nickname);
+        }
+    }
+
+    public static void newVideoQueueCallback(SocketDetails masterSocket, ServerQueue serverQueue, ServerQueueObject newServerQueueObject, SocketIOServer server, Logger logger) {
+        if(masterSocket.getSocketId() == null) {
+            logger.info("No master socket set, request is ignored");
+            return;
+        }
+
         logger.info("New video added to queue : {}", newServerQueueObject.getVideoURL());
         boolean playVideo = false;
 
@@ -192,6 +188,19 @@ public class Launcher {
 
         server.getBroadcastOperations().sendEvent("newVideoQueueForClient", jsonObject.toString());
     }
+
+    public static void returnCurrentVideoElapsedTimeCallback(ReturnCurrentVideoElapsedTimeObject data, SocketIOServer server, ServerQueue serverQueue) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("elapsedTime", data.getElapsedTime());
+
+        ServerQueueObject currentObjectQueued = serverQueue.peekCurrentQueuedVideo();
+
+        jsonObject.addProperty("username", currentObjectQueued.getUsername());
+        jsonObject.addProperty("videoURL", currentObjectQueued.getVideoURL());
+
+        server.getClient(data.getNewClientSocketId()).sendEvent("playCurrentVideoForNewClient", jsonObject.toString());
+    }
+
 
     public static boolean isSocketMaster(UUID socketId) {
         if(masterSocket.getSocketId() == null) {
