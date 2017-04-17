@@ -46,6 +46,8 @@ public class LauncherTest {
     private Logger mockLogger;
     @Mock
     private SocketDetails mockMasterSocketDetails;
+    @Mock
+    private ReturnCurrentVideoElapsedTimeObject mockReturnCurrentVideoElapsedTimeObject;
 
     @Before
     public void setup() throws Exception {
@@ -128,5 +130,66 @@ public class LauncherTest {
         expectedJsonObject.remove("videoQueue");
         expectedJsonObject.addProperty("videoQueue", "[[{\"username\":\"" + DUMMY_USERNAME + "\",\"videoURL\":\"" + DUMMY_VIDEOURL + "\"}],[{\"username\":\"" + DUMMY_USERNAME + "\",\"videoURL\":\"" + DUMMY_VIDEOURL + "\"}]]");
         assertEquals(expectedJsonObject, jsonParser.parse(jsonCaptor.getAllValues().get(1)));
+    }
+
+    @Test
+    public void videoFinishedPlayingCallbackTest() throws Exception {
+        String eventName = "playNextVideoInQueue";
+        when(mockMasterSocketDetails.getSocketId()).thenReturn(DUMMY_MASTER_SOCKET_ID);
+        when(mockSocketIOClient.getSessionId()).thenReturn(DUMMY_MASTER_SOCKET_ID);
+        ServerQueue serverQueue = new ServerQueue();
+        serverQueue.queueNewVideo(DUMMY_USERNAME, new ServerQueueObject(DUMMY_USERNAME, DUMMY_VIDEOURL + 1));
+        Launcher.videoFinishedPlayingCallback(mockSocketIOClient, mockServer, serverQueue, mockLogger, mockMasterSocketDetails);
+
+        serverQueue.queueNewVideo(DUMMY_USERNAME, new ServerQueueObject(DUMMY_USERNAME, DUMMY_VIDEOURL + 2));
+        serverQueue.queueNewVideo(DUMMY_USERNAME, new ServerQueueObject(DUMMY_USERNAME, DUMMY_VIDEOURL + 3));
+        Launcher.videoFinishedPlayingCallback(mockSocketIOClient, mockServer,serverQueue, mockLogger, mockMasterSocketDetails);
+
+        ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mockBroadcastOperations, times(2)).sendEvent(eq(eventName), jsonCaptor.capture());
+
+        JsonParser jsonParser = new JsonParser();
+        JsonObject expectedJsonObject = new JsonObject();
+
+        assertEquals(expectedJsonObject, jsonParser.parse(jsonCaptor.getAllValues().get(0)));
+
+        expectedJsonObject.addProperty("videoQueue", "[[{\"username\":\"" + DUMMY_USERNAME + "\",\"videoURL\":\"" + DUMMY_VIDEOURL + 3 + "\"}]]");
+        expectedJsonObject.addProperty("username", DUMMY_USERNAME);
+        expectedJsonObject.addProperty("videoURL", DUMMY_VIDEOURL + 3);
+        assertEquals(expectedJsonObject, jsonParser.parse(jsonCaptor.getAllValues().get(1)));
+    }
+
+    @Test
+    public void videoPlayerChangedCallbackTest() throws Exception {
+        when(mockMasterSocketDetails.getSocketId()).thenReturn(DUMMY_MASTER_SOCKET_ID);
+        when(mockSocketIOClient.getSessionId()).thenReturn(DUMMY_MASTER_SOCKET_ID);
+
+        Launcher.videoPlayerChangedCallback("videoPaused", mockSocketIOClient, mockServer, mockMasterSocketDetails, null);
+        Launcher.videoPlayerChangedCallback("videoPlayed", mockSocketIOClient, mockServer, mockMasterSocketDetails, null);
+
+        when(mockReturnCurrentVideoElapsedTimeObject.getElapsedTime()).thenReturn(DUMMY_ELAPSED_TIME);
+        when(mockReturnCurrentVideoElapsedTimeObject.getNewClientSocketId()).thenReturn(DUMMY_MASTER_SOCKET_ID);
+        Launcher.videoPlayerChangedCallback("videoSeeked", mockSocketIOClient, mockServer, mockMasterSocketDetails, mockReturnCurrentVideoElapsedTimeObject);
+
+        JsonParser jsonParser = new JsonParser();
+        ArgumentCaptor<String> eventCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
+
+        verify(mockBroadcastOperations, times(3)).sendEvent(eventCaptor.capture(), jsonCaptor.capture());
+        List<String> eventList = eventCaptor.getAllValues();
+        List<String> jsonList = jsonCaptor.getAllValues();
+
+        JsonObject expectedJsonObject = new JsonObject();
+        expectedJsonObject.addProperty("masterSocketID", DUMMY_MASTER_SOCKET_ID.toString());
+
+        assertEquals("pauseVideoForAllClients", eventList.get(0));
+        assertEquals("playVideoForAllClients", eventList.get(1));
+        assertEquals("seekVideoForAllClients", eventList.get(2));
+
+        assertEquals(expectedJsonObject, jsonParser.parse(jsonList.get(0)));
+        assertEquals(expectedJsonObject, jsonParser.parse(jsonList.get(1)));
+
+        expectedJsonObject.addProperty("elapsedTime", DUMMY_ELAPSED_TIME);
+        assertEquals(expectedJsonObject, jsonParser.parse(jsonList.get(2)));
     }
 }

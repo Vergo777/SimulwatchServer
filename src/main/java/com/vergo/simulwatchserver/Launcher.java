@@ -38,8 +38,20 @@ public class Launcher {
                 logger.info("Sending initial server queue data {}, length : {}", gsonBuilder.create().toJson(serverQueue), serverQueue.getServerQueueLength());
                 socketIOClient.sendEvent("initialQueueData", gsonBuilder.create().toJson(serverQueue));
 
-                if(masterSocket.getSocketId() != null && !isSocketMaster(socketIOClient.getSessionId()) && serverQueue.getServerQueueLength() > 0) {
+                if(masterSocket.getSocketId() != null && !isSocketMaster(socketIOClient.getSessionId(), masterSocket) && serverQueue.getServerQueueLength() > 0) {
                     server.getClient(masterSocket.getSocketId()).sendEvent("getCurrentVideoElapsedTime", socketIOClient.getSessionId());
+                }
+            }
+        });
+
+        server.addDisconnectListener(new DisconnectListener() {
+            @Override
+            public void onDisconnect(SocketIOClient socketIOClient) {
+                if(isSocketMaster(socketIOClient.getSessionId(), masterSocket)) {
+                    logger.info("Master socket has disconnected, all events will be stopped");
+                    serverQueue.clearServerQueue();
+                    masterSocket.clearSocketDetails();
+                    server.getBroadcastOperations().sendEvent("killEverything");
                 }
             }
         });
@@ -51,55 +63,24 @@ public class Launcher {
             }
         });
 
-        server.addDisconnectListener(new DisconnectListener() {
-            @Override
-            public void onDisconnect(SocketIOClient socketIOClient) {
-                if(isSocketMaster(socketIOClient.getSessionId())) {
-                    logger.info("Master socket has disconnected, all events will be stopped");
-                    serverQueue.clearServerQueue();
-                    masterSocket.clearSocketDetails();
-                    server.getBroadcastOperations().sendEvent("killEverything");
-                }
-            }
-        });
-
         server.addEventListener("videoPaused", JsonObject.class, new DataListener<JsonObject>() {
             @Override
             public void onData(SocketIOClient client, JsonObject data, AckRequest ackSender) throws Exception {
-                if(isSocketMaster(client.getSessionId())) {
-
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.addProperty("masterSocketID", masterSocket.getSocketId().toString());
-
-                    server.getBroadcastOperations().sendEvent("pauseVideoForAllClients", jsonObject.toString());
-                }
+                videoPlayerChangedCallback("videoPaused", client, server, masterSocket, null);
             }
         });
 
         server.addEventListener("videoPlayed", JsonObject.class, new DataListener<JsonObject>() {
             @Override
             public void onData(SocketIOClient client, JsonObject data, AckRequest ackSender) throws Exception {
-                if(isSocketMaster(client.getSessionId())) {
-
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.addProperty("masterSocketID", masterSocket.getSocketId().toString());
-
-                    server.getBroadcastOperations().sendEvent("playVideoForAllClients", jsonObject.toString());
-                }
+                videoPlayerChangedCallback("videoPlayed", client, server, masterSocket, null);
             }
         });
 
         server.addEventListener("videoSeeked", ReturnCurrentVideoElapsedTimeObject.class, new DataListener<ReturnCurrentVideoElapsedTimeObject>() {
             @Override
             public void onData(SocketIOClient client, ReturnCurrentVideoElapsedTimeObject data, AckRequest ackSender) throws Exception {
-                if(isSocketMaster(client.getSessionId())) {
-
-                    JsonObject jsonObject = new JsonObject();
-                    jsonObject.addProperty("elapsedTime", data.getElapsedTime());
-                    jsonObject.addProperty("masterSocketID", data.getNewClientSocketId().toString());
-
-                    server.getBroadcastOperations().sendEvent("seekVideoForAllClients", jsonObject.toString());
-                }
+                videoPlayerChangedCallback("videoSeeked", client, server, masterSocket, data);
             }
         });
 
@@ -113,32 +94,7 @@ public class Launcher {
         server.addEventListener("videoFinishedPlaying", JsonObject.class, new DataListener<JsonObject>() {
             @Override
             public void onData(SocketIOClient client, JsonObject data, AckRequest ackSender) throws Exception {
-                if(isSocketMaster(client.getSessionId())) {
-                    logger.info("Detected master finished playing, loading next video in queue");
-                    Thread.sleep(5000);
-                    ServerQueueObject nextVideo = serverQueue.getNextQueuedVideo();
-
-                    /*
-                    3 cases to deal with here -
-                    1. music queue is empty and we try getting next video - will return null
-                    2. music queue has one last element left and after getting that, queue is empty - queue will return null
-                    3. music queue has more than one element left
-                     */
-
-                    JsonObject jsonObject = new JsonObject();
-
-                    if(nextVideo != null) {
-                        GsonBuilder gsonBuilder = new GsonBuilder();
-                        gsonBuilder.registerTypeAdapter(ServerQueue.class, new ServerQueueSerializer());
-
-                        jsonObject.addProperty("videoQueue", gsonBuilder.create().toJson(serverQueue));
-                        jsonObject.addProperty("username", nextVideo.getUsername());
-                        jsonObject.addProperty("videoURL", nextVideo.getVideoURL());
-                        logger.info("Sending new video {} to play", nextVideo.getVideoURL());
-                    }
-
-                    server.getBroadcastOperations().sendEvent("playNextVideoInQueue", jsonObject.toString());
-                }
+                videoFinishedPlayingCallback(client, server, serverQueue, logger, masterSocket);
             }
         });
 
@@ -150,6 +106,58 @@ public class Launcher {
         });
 
         server.start();
+    }
+
+    // function that deals with pause, play and seek callbacks of video player
+    public static void videoPlayerChangedCallback(String videoAction, SocketIOClient client, SocketIOServer server, SocketDetails masterSocket, ReturnCurrentVideoElapsedTimeObject data) {
+        if(isSocketMaster(client.getSessionId(), masterSocket)) {
+
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("masterSocketID", masterSocket.getSocketId().toString());
+
+            String sendEvent = "";
+            switch (videoAction) {
+                case "videoPaused" : sendEvent = "pauseVideoForAllClients";
+                    break;
+                case "videoPlayed" : sendEvent = "playVideoForAllClients";
+                    break;
+                case "videoSeeked" :
+                    sendEvent = "seekVideoForAllClients";
+                    jsonObject.addProperty("elapsedTime", data.getElapsedTime());
+                    break;
+            }
+
+            server.getBroadcastOperations().sendEvent(sendEvent, jsonObject.toString());
+        }
+    }
+
+    public static void videoFinishedPlayingCallback(SocketIOClient client, SocketIOServer server, ServerQueue serverQueue, Logger logger, SocketDetails masterSocket) throws InterruptedException {
+        if(isSocketMaster(client.getSessionId(), masterSocket)) {
+            logger.info("Detected master finished playing, loading next video in queue");
+            Thread.sleep(5000);
+            ServerQueueObject nextVideo = serverQueue.getNextQueuedVideo();
+
+                    /*
+                    3 cases to deal with here -
+                    1. music queue is empty and we try getting next video - will return null
+                    2. music queue has one last element left and after getting that, queue is empty - queue will return null
+                    3. music queue has more than one element left
+                     */
+
+            JsonObject jsonObject = new JsonObject();
+
+            if(nextVideo != null) {
+                GsonBuilder gsonBuilder = new GsonBuilder();
+                gsonBuilder.registerTypeAdapter(ServerQueue.class, new ServerQueueSerializer());
+
+                jsonObject.addProperty("videoQueue", gsonBuilder.create().toJson(serverQueue));
+                jsonObject.addProperty("username", nextVideo.getUsername());
+                jsonObject.addProperty("videoURL", nextVideo.getVideoURL());
+                logger.info("Sending new video {} to play", nextVideo.getVideoURL());
+            }
+
+            server.getBroadcastOperations().sendEvent("playNextVideoInQueue", jsonObject.toString());
+        }
     }
 
     public static void setNicknameCallback(String nickname, SocketIOClient socketIOClient, Logger logger, SocketDetails masterSocket) {
@@ -202,7 +210,7 @@ public class Launcher {
     }
 
 
-    public static boolean isSocketMaster(UUID socketId) {
+    public static boolean isSocketMaster(UUID socketId, SocketDetails masterSocket) {
         if(masterSocket.getSocketId() == null) {
             return false;
         }
